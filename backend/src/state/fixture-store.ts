@@ -1,4 +1,4 @@
-import { Fixture, FixtureState, DeviceInfo } from '../types';
+import { Fixture, FixtureState, DeviceInfo, Cue } from '../types';
 import { Server } from 'socket.io';
 
 export class FixtureStore {
@@ -7,6 +7,10 @@ export class FixtureStore {
   private io: Server | null = null;
   private readonly gracePeriodMs = 30000; // 30 seconds
 
+  // Cue Management State
+  private cues: Cue[] = [];
+  private activeCueId: string | null = null;
+
   public setIo(io: Server) {
     this.io = io;
   }
@@ -14,6 +18,15 @@ export class FixtureStore {
   private broadcastToOperators() {
     if (this.io) {
       this.io.to('operators').emit('operator:fixtures-update', this.getAll());
+    }
+  }
+
+  private broadcastCuesToOperators() {
+    if (this.io) {
+      this.io.to('operators').emit('operator:cues-update', {
+        cues: this.cues,
+        activeCueId: this.activeCueId,
+      });
     }
   }
 
@@ -82,6 +95,40 @@ export class FixtureStore {
 
   public get(id: string): Fixture | undefined {
     return this.fixtures[id];
+  }
+
+  // --- Cue Management ---
+
+  public getCuesState() {
+    return { cues: this.cues, activeCueId: this.activeCueId };
+  }
+
+  public saveCue(cue: Cue): void {
+    const existingIndex = this.cues.findIndex((c) => c.id === cue.id);
+    if (existingIndex >= 0) {
+      this.cues[existingIndex] = cue;
+    } else {
+      this.cues.push(cue);
+    }
+    this.broadcastCuesToOperators();
+  }
+
+  public deleteCue(cueId: string): void {
+    this.cues = this.cues.filter((c) => c.id !== cueId);
+    if (this.activeCueId === cueId) {
+      this.activeCueId = null;
+    }
+    this.broadcastCuesToOperators();
+  }
+
+  public setActiveCue(cueId: string | null): void {
+    this.activeCueId = cueId;
+    this.broadcastCuesToOperators();
+  }
+
+  public reorderCues(newCues: Cue[]): void {
+    this.cues = newCues;
+    this.broadcastCuesToOperators();
   }
 }
 
