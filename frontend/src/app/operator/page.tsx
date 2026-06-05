@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ColorControls } from "../../components/color-controls";
 import { FixtureGrid } from "../../components/fixture-grid";
+import { QrModal } from "../../components/qr-modal";
 import { useSocket } from "../../context/socket-provider";
 
 export default function OperatorPage() {
@@ -39,9 +40,7 @@ export default function OperatorPage() {
           {/* Controls Column (Left) */}
           <div className="lg:col-span-1 flex flex-col gap-8">
             <ColorControls />
-            <div className="border border-zinc-200 bg-zinc-100 p-6 text-center">
-              <span className="text-xs font-bold text-zinc-900 uppercase">Phase 1 Controls</span>
-            </div>
+            <QrModal />
           </div>
           
           {/* Status Column (Right) */}
