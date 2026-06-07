@@ -1,4 +1,4 @@
-import { Fixture, FixtureState, DeviceInfo, Cue } from '../types';
+import { Fixture, FixtureState, DeviceInfo, Cue, TimelineEvent, PlaybackState } from '../types';
 import { Server } from 'socket.io';
 
 export class FixtureStore {
@@ -10,6 +10,12 @@ export class FixtureStore {
   // Cue Management State
   private cues: Cue[] = [];
   private activeCueId: string | null = null;
+
+  // Timeline State
+  private timelineEvents: TimelineEvent[] = [];
+  private playbackState: PlaybackState = { isPlaying: false, currentTimeMs: 0, startTime: null };
+  private playbackInterval: NodeJS.Timeout | null = null;
+  private nextTimelineEventIndex: number = 0;
 
   public setIo(io: Server) {
     this.io = io;
@@ -26,6 +32,15 @@ export class FixtureStore {
       this.io.to('operators').emit('operator:cues-update', {
         cues: this.cues,
         activeCueId: this.activeCueId,
+      });
+    }
+  }
+
+  private broadcastTimelineToOperators() {
+    if (this.io) {
+      this.io.to('operators').emit('operator:timeline-update', {
+        events: this.timelineEvents,
+        playback: this.playbackState,
       });
     }
   }
@@ -129,6 +144,75 @@ export class FixtureStore {
   public reorderCues(newCues: Cue[]): void {
     this.cues = newCues;
     this.broadcastCuesToOperators();
+  }
+
+  // --- Timeline Management ---
+
+  public getTimelineState() {
+    return { events: this.timelineEvents, playback: this.playbackState };
+  }
+
+  public addTimelineEvent(event: TimelineEvent): void {
+    this.timelineEvents.push(event);
+    this.timelineEvents.sort((a, b) => a.timestampMs - b.timestampMs);
+    this.broadcastTimelineToOperators();
+  }
+
+  public deleteTimelineEvent(eventId: string): void {
+    this.timelineEvents = this.timelineEvents.filter((e) => e.id !== eventId);
+    this.broadcastTimelineToOperators();
+  }
+
+  public playShow(): void {
+    if (this.playbackState.isPlaying) return;
+
+    this.playbackState.isPlaying = true;
+    this.playbackState.startTime = Date.now() - this.playbackState.currentTimeMs;
+    this.nextTimelineEventIndex = this.timelineEvents.findIndex(e => e.timestampMs >= this.playbackState.currentTimeMs);
+    if (this.nextTimelineEventIndex === -1) this.nextTimelineEventIndex = this.timelineEvents.length;
+
+    this.broadcastTimelineToOperators();
+
+    this.playbackInterval = setInterval(() => {
+      if (!this.playbackState.startTime) return;
+      this.playbackState.currentTimeMs = Date.now() - this.playbackState.startTime;
+
+      // Check for cues to trigger
+      while (
+        this.nextTimelineEventIndex < this.timelineEvents.length &&
+        this.playbackState.currentTimeMs >= this.timelineEvents[this.nextTimelineEventIndex].timestampMs
+      ) {
+        const event = this.timelineEvents[this.nextTimelineEventIndex];
+        const cue = this.cues.find(c => c.id === event.cueId);
+        if (cue) {
+          this.setActiveCue(cue.id);
+          const newState = { color: cue.color, brightness: cue.brightness };
+          this.updateAllStates(newState);
+          if (this.io) this.io.to('fixtures').emit('fixture:cue', newState);
+        }
+        this.nextTimelineEventIndex++;
+      }
+
+      // Broadcast clock updates roughly every 100ms
+      this.broadcastTimelineToOperators();
+    }, 100);
+  }
+
+  public pauseShow(): void {
+    if (!this.playbackState.isPlaying) return;
+    this.playbackState.isPlaying = false;
+    this.playbackState.startTime = null;
+    if (this.playbackInterval) clearInterval(this.playbackInterval);
+    this.broadcastTimelineToOperators();
+  }
+
+  public stopShow(): void {
+    this.playbackState.isPlaying = false;
+    this.playbackState.currentTimeMs = 0;
+    this.playbackState.startTime = null;
+    this.nextTimelineEventIndex = 0;
+    if (this.playbackInterval) clearInterval(this.playbackInterval);
+    this.broadcastTimelineToOperators();
   }
 }
 

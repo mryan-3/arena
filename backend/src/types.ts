@@ -27,3 +27,15 @@ export interface Cue {
   brightness: number;
   duration: number; // in seconds
 }
+
+export interface TimelineEvent {
+  id: string;
+  cueId: string;
+  timestampMs: number; // offset from 00:00:00 in milliseconds
+}
+
+export interface PlaybackState {
+  isPlaying: boolean;
+  currentTimeMs: number;
+  startTime: number | null; // Date.now() when started
+}

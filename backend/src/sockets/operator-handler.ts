@@ -1,6 +1,6 @@
 import { Socket, Server } from 'socket.io';
 import { fixtureStore } from '../state/fixture-store';
-import { Cue } from '../types';
+import { Cue, TimelineEvent } from '../types';
 
 export function registerOperatorHandlers(io: Server, socket: Socket) {
   socket.on('operator:register', () => {
@@ -8,6 +8,7 @@ export function registerOperatorHandlers(io: Server, socket: Socket) {
     socket.join('operators');
     socket.emit('operator:fixtures-update', fixtureStore.getAll());
     socket.emit('operator:cues-update', fixtureStore.getCuesState());
+    socket.emit('operator:timeline-update', fixtureStore.getTimelineState());
   });
 
   socket.on('operator:trigger-color', (data: { color: string; brightness?: number }) => {
@@ -48,5 +49,30 @@ export function registerOperatorHandlers(io: Server, socket: Socket) {
   socket.on('operator:reorder-cues', (cues: Cue[]) => {
     console.log(`[Operator] Reordered cues`);
     fixtureStore.reorderCues(cues);
+  });
+
+  socket.on('operator:add-to-timeline', (event: TimelineEvent) => {
+    console.log(`[Operator] Added timeline event: Cue ${event.cueId} at ${event.timestampMs}ms`);
+    fixtureStore.addTimelineEvent(event);
+  });
+
+  socket.on('operator:delete-timeline-event', (eventId: string) => {
+    console.log(`[Operator] Deleted timeline event: ${eventId}`);
+    fixtureStore.deleteTimelineEvent(eventId);
+  });
+
+  socket.on('operator:play-show', () => {
+    console.log(`[Operator] Play show`);
+    fixtureStore.playShow();
+  });
+
+  socket.on('operator:pause-show', () => {
+    console.log(`[Operator] Pause show`);
+    fixtureStore.pauseShow();
+  });
+
+  socket.on('operator:stop-show', () => {
+    console.log(`[Operator] Stop show`);
+    fixtureStore.stopShow();
   });
 }

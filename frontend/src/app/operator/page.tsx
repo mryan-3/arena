@@ -6,6 +6,9 @@ import { FixtureGrid } from "../../components/fixture-grid";
 import { QrModal } from "../../components/qr-modal";
 import { CueBuilder } from "../../components/cue-builder";
 import { CueList } from "../../components/cue-list";
+import { TimelineEditor } from "../../components/timeline-editor";
+import { TimelineView } from "../../components/timeline-view";
+import { PlaybackControls } from "../../components/playback-controls";
 import { useSocket } from "../../context/socket-provider";
 
 export default function OperatorPage() {
@@ -35,6 +38,11 @@ export default function OperatorPage() {
           </div>
         </header>
 
+        {/* Master Playback Strip */}
+        <div className="w-full">
+          <PlaybackControls />
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
           
           {/* Left: Manual & Network */}
@@ -44,14 +52,18 @@ export default function OperatorPage() {
             <QrModal />
           </div>
 
-          {/* Middle: Builder */}
+          {/* Middle: Builder & Editor */}
           <div className="lg:col-span-1 flex flex-col gap-6">
             <CueBuilder />
+            <TimelineEditor />
           </div>
 
           {/* Right: Cue List & Show Control */}
           <div className="lg:col-span-2 flex flex-col gap-6">
-            <CueList />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <CueList />
+              <TimelineView />
+            </div>
           </div>
 
         </div>
